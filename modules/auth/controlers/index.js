@@ -10,7 +10,7 @@ module.exports.createUser = async(req, res) => {
     photoURL: 'http://www.example.com/12345678/photo.png',
     disabled: false
   });
-  // Cuando se cumpla la promesa, creo el documento en firestore
+  // Cuando se cumpla la promesa, creo el documento en firestores
   createAuthUser.then(function(userRecord) {
       res.status(200).json({
         status: `Successfully created new user: ${userRecord.uid}`
