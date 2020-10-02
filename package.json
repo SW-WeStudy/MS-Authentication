@@ -1,0 +1,29 @@
+{
+  "name": "westudy1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SW-WeStudy/MS-Authentication.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SW-WeStudy/MS-Authentication/issues"
+  },
+  "homepage": "https://github.com/SW-WeStudy/MS-Authentication#readme",
+  "dependencies": {
+    "bcrypt": "^5.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "firebase-admin": "^9.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^7.10.0"
+  }
+}
