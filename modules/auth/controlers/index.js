@@ -1,7 +1,6 @@
 let fire = require("../../../firebase").fire;
 
-module.exports.createUser = async(req, res) => {
-  // Creo la promesa para crear un usuario en el auth
+module.exports.createUser = async (req, res) => {
   var createAuthUser = fire.auth().createUser({
     email: req.body.email,
     emailVerified: false,
@@ -10,7 +9,7 @@ module.exports.createUser = async(req, res) => {
     photoURL: 'http://www.example.com/12345678/photo.png',
     disabled: false
   });
-  // Cuando se cumpla la promesa, creo el documento en firestores
+  // creacion del documento en firestore
   createAuthUser.then(function(userRecord) {
       res.status(200).json({
         status: `Successfully created new user: ${userRecord.uid}`
@@ -22,6 +21,9 @@ module.exports.createUser = async(req, res) => {
         displayName: req.body.displayName,
         photoURL: 'http://www.example.com/12345678/photo.png',
         idCourses: [{}],
+        idStudyRooms: [{}],
+        idForum: [{}],
+        role: req.body.role,
         disabled: false
       })
       .catch(function(error) {
@@ -39,12 +41,17 @@ module.exports.createUser = async(req, res) => {
   });
 };
 
+// estos son intentos de manejar la auth con firebase tokens
+/*
+module.exports.getUsernameFromToken = async (token) =>{
+  return jwt.verify(token,secret).username;
+}
 
 module.exports.getAuthUser = async(req, res) => {
   console.log('Check if request is authorized with Firebase ID token');
   console.log("req body" + req.body.uid);
   try {
-    const { authToken } = req
+    const { authToken } = this.getUsernameFromToken
     console.log(authToken)
     const userInfo = await fire.auth().verifyIdToken(authToken);
     req.authId = userInfo.uid
@@ -57,9 +64,8 @@ module.exports.getAuthUser = async(req, res) => {
       status: 'Error creating new user:' + error
     })
   }
-  
 }
-/*
+
 async function addDecodedIdTokenToRequest(idToken, req) {
   try {
     const decodedIdToken
@@ -70,6 +76,8 @@ async function addDecodedIdTokenToRequest(idToken, req) {
   }
 }
 */
+
+//consultas del usuario por su uid
 module.exports.getUserByUid = async(req, res) => {
   fire.auth().getUser(req.body.uid).then(function(userRecord) {
       res.status(200).json({
@@ -84,6 +92,7 @@ module.exports.getUserByUid = async(req, res) => {
     });
 };
 
+//consultas del usuario por su email
 module.exports.getUserByEmail = async(req, res) => {
   fire.auth().getUserByEmail(req.body.email).then(function(userRecord) {
       res.status(200).json({
@@ -98,9 +107,11 @@ module.exports.getUserByEmail = async(req, res) => {
     });
 };
 
+// actualizacion de los datos del usuario
+// aqui se puede modificar basicamente todos los datos tanto en el modulo auth, como en firestore en su respectivo documento
 module.exports.updateUser= async(req, res) => {
   // Creo la promesa para actualizar un usuario en el auth
-  var updateAuthUser = Promise.fire.auth().updateUser(req.body.uid, {
+  var updateAuthUser = fire.auth().updateUser(req.body.uid, {
     email: req.body.email,
     emailVerified: req.body.emailVerified,
     password: req.body.password,
@@ -117,7 +128,11 @@ module.exports.updateUser= async(req, res) => {
         emailVerified: req.body.emailVerified,
         password: req.body.password,
         displayName: req.body.displayName,
-        disabled: false
+        role: req.body.role,
+        disabled: false,
+        idCourses: req.body.idCourses,
+        idStudyRooms: req.body.idStudyRooms,
+        idForum: req.body.idForum,
       })
       .catch(function(error) {
         console.log('Error updating user doc:', error);
@@ -134,6 +149,7 @@ module.exports.updateUser= async(req, res) => {
     });
 };
 
+// deshabilita que un usuario se pueda autenticar, mas no elimina su documento en firestore
 module.exports.putDownUser= async(req, res) => {
   fire.auth().updateUser(req.body.uid,{
     disabled: true
@@ -150,6 +166,7 @@ module.exports.putDownUser= async(req, res) => {
     });
 };
 
+// habilita que un usuario se pueda autenticar, esto sin modificar o eliminar su documento en firestore
 module.exports.putUpUser= async(req, res) => {
   fire.auth().updateUser(req.body.uid,{
     disabled: false
@@ -166,11 +183,21 @@ module.exports.putUpUser= async(req, res) => {
     });
 };
 
+// elimina sus credenciales de autenticacion, dejare comentado el de eliminar el documento 
+// puesto que no se hasta que punto sea eso conveniente
 module.exports.deleteUser= async(req, res) => {
-  fire.auth().deleteUser(req.body.uid).then(function(userRecord) {
+  fire.auth().deleteUser(req.body.uid).then(function() {
       res.status(200).json({
         status: `Successfully deleted user`
       })
+      /*
+      deleteFireUser = fire.firestore().collection("user").doc(req.body.uid).delete().catch(function (error) {
+        console.log('Error deleting user doc:', error);
+        res.status(200).json({
+          status: 'Error deleting user doc:' + error
+        })
+      });
+      */
     })
     .catch(function(error) {
       console.log('Error deleting user:', error);
