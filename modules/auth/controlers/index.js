@@ -94,7 +94,7 @@ module.exports.getUserByUid = async(req, res) => {
 
 //consultas del usuario por su email
 module.exports.getUserByEmail = async(req, res) => {
-  fire.auth().getUserByEmail(req.body.email).then(function(userRecord) {
+  await fire.auth().getUserByEmail(req.body.email).then(function(userRecord) {
       res.status(200).json({
         status: `Successfully get user by email: ${userRecord.uid}`
       });
