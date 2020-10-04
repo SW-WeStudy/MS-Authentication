@@ -23,7 +23,7 @@ module.exports.createUser = async (req, res) => {
         idCourses: [{}],
         idStudyRooms: [{}],
         idForum: [{}],
-        role: req.body.role,
+        role: "User",
         disabled: false
       })
       .catch(function(error) {
@@ -82,7 +82,7 @@ module.exports.getUserByUid = async(req, res) => {
   fire.auth().getUser(req.body.uid).then(function(userRecord) {
       res.status(200).json({
         status: `Successfully get user by uid: ${userRecord.uid}`
-      })
+      });
     })
     .catch(function(error) {
       console.log('Error getting user:', error);
@@ -97,7 +97,7 @@ module.exports.getUserByEmail = async(req, res) => {
   fire.auth().getUserByEmail(req.body.email).then(function(userRecord) {
       res.status(200).json({
         status: `Successfully get user by email: ${userRecord.uid}`
-      })
+      });
     })
     .catch(function(error) {
       console.log('Error getting user:', error);

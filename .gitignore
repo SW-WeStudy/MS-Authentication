@@ -116,5 +116,5 @@ dist
 .pnp.*
 
 # files to ignore
-.firebase.js
-.serviceAccountKey.json
+firebase.js
+serviceAccountKey.json
