@@ -1,4 +1,76 @@
 let fire = require("../../../firebase").fire;
+const { admin } = require("firebase-admin/lib/credential");
+
+// LDAP connection
+
+/*use this to create connection*/
+var ldap = require('ldapjs');
+var client = ldap.createClient({
+  url: 'ldap://3.238.50.131:389',
+});
+
+// create user in LDAP, maybe we may need homeDirectory
+module.exports.createUserLDAP = async (req, res) => {
+  var username = "cn=admin,dc=arqsoft,dc=unal,dc=edu,dc=co";
+  var password = 'admin';
+  var dataRequest = req.body;
+  var newDN = "cn=" + dataRequest.email + ",ou=sa,dc=arqsoft,dc=unal,dc=edu,dc=co";
+  var newUser = {
+    cn: dataRequest.email,
+    sn: dataRequest.surName,
+    uid: dataRequest.email,
+    mail: dataRequest.email,
+    objectClass: 'inetOrgPerson',
+    userPassword: dataRequest.password
+  }
+  // console.log("inside first function") 
+  function createDN(username, password, newDN, newUser ) {
+    client.bind(username, password, function (err) {
+      if (err) {
+        console.log("Error in new connetion " + err)
+        res.status(500).json({
+          status: "Error binding admin in LDAP server:" + err,
+        });
+      } else {
+        console.log("Success");
+        client.add(newDN, newUser, function (err) {
+          if (err) {
+            res.status(500).json({
+              status: "Error creating new user in LDAP server:" + err,
+            });
+          } else {
+            res.status(200).json({
+              status: "Succesfuly created user in LDAP server",
+            })
+          }
+        });
+      }
+    });
+  }
+  await createDN(username, password, newDN, newUser);
+}
+
+// auth user in LDAP, maybe we may need homeDirectory
+module.exports.authUserLDAP = async (req, res) => {
+  var dataRequest = req.body;
+  var username = "cn=" + dataRequest.email + ",ou=sa,dc=arqsoft,dc=unal,dc=edu,dc=co";
+  var password = dataRequest.password;
+  function authenticateDN(username, password) {
+    client.bind(username, password, function (err) {
+        if (err) {
+          console.log("Error in new connetion " + err)
+          res.status(500).json({
+            status: "Error binding/auth user in LDAP server:" + err,
+          });
+        } else {
+          res.status(200).json({
+            status: "Succesfuly authenticated user in LDAP server",
+          })
+        }
+    });
+  }
+  await authenticateDN(username, password);
+}
 
 module.exports.createUser = async (req, res) => {
   var createAuthUser = fire.auth().createUser({
@@ -46,52 +118,6 @@ module.exports.createUser = async (req, res) => {
         status: "Error creating new user doc:" + err,
       });
     });
-  /*
-  var createAuthUser = fire.auth().createUser({
-    email: req.body.email,
-    emailVerified: false,
-    password: req.body.password,
-    displayName: req.body.displayName,
-    photoURL: "http://www.example.com/12345678/photo.png",
-    disabled: false,
-  });
-  // creacion del documento en firestore
-  createAuthUser.then(function (userRecord) {
-    createFireUser = fire
-      .firestore()
-      .collection("user")
-      .doc(userRecord.uid)
-      .set({
-        email: req.body.email,
-        emailVerified: false,
-        password: req.body.password,
-        displayName: req.body.displayName,
-        photoURL: "http://www.example.com/12345678/photo.png",
-        idCourses: [{}],
-        idStudyRooms: [{}],
-        idForum: [{}],
-        role: "User",
-        disabled: false,
-      })
-      .then(function (userRecord1) {
-        res.status(200).json({
-          ...userRecord,
-        });
-      })
-      .catch(function (error) {
-        console.log("Error creating new user doc:", error);
-        res.status(200).json({
-          status: "Error creating new user doc:" + error,
-        });
-      });
-  });
-  createAuthUser.catch(function (error) {
-    console.log("Error creating new user:", error);
-    res.status(200).json({
-      status: "Error creating new user:" + error,
-    });
-  });
-  */
 };
 
 //consultas del usuario por su uid
@@ -124,35 +150,6 @@ module.exports.getUserByUid = async (req, res) => {
         status: "Error getting user auth and doc:" + err,
       });
     });
-  /*
-  var getUserId = fire.auth().getUser(req.body.uid);
-  // reclama credenciales en auth para pedir doc en firestore
-  getUserId.then(function (userRecord) {
-    getFireUserID = fire
-      .firestore()
-      .collection("user")
-      .doc(userRecord.uid)
-      .onSnapshot((snapshot) => {
-        snap = snapshot.data();
-        // con el ...userRecord da informacion del token verificado
-        res.status(200).json({
-          ...snap,
-        });
-      })
-      .catch(function (error) {
-        console.log("Error getting user doc:", error);
-        res.status(200).json({
-          status: "Error getting user doc:" + error,
-        });
-      });
-  });
-  getUserId.catch(function (error) {
-    console.log("Error getting user:", error);
-    res.status(200).json({
-      status: "Error getting user:" + error,
-    });
-  });
-  */
 };
 
 //consultas del usuario por su email
@@ -185,34 +182,7 @@ module.exports.getUserByEmail = async (req, res) => {
         status: "Error getting user auth and doc:" + err,
       });
     });
-  /*
-  var getUserEmail = fire.auth().getUserByEmail(req.body.email);
-  // reclama credenciales en auth para pedir doc en firestore
-  getUserEmail.then(function (userRecord) {
-    getFireUserEmail = fire
-      .firestore()
-      .collection("user")
-      .doc(userRecord.uid)
-      .onSnapshot((snapshot) => {
-        snap = snapshot.data();
-        res.status(200).json({
-          ...snap,
-        });
-      })
-      .catch(function (error) {
-        console.log("Error getting user doc:", error);
-        res.status(200).json({
-          status: "Error getting user doc:" + error,
-        });
-      });
-  });
-  getUserEmail.catch(function (error) {
-    console.log("Error getting user:", error);
-    res.status(200).json({
-      status: "Error getting user:" + error,
-    });
-  });
-  */
+
 };
 
 // actualizacion de los datos del usuario
@@ -431,27 +401,27 @@ module.exports.putUpUser = async (req, res) => {
 // puesto que no se hasta que punto sea eso conveniente
 module.exports.deleteUser = async (req, res) => {
 
-    var uid = req.body.uid;
-    var deleteAuthUser = fire.auth().deleteUser(uid);
-    deleteAuthUser.then(function (userRecord) {
-      deleteFireUser = fire
-        .firestore()
-        .collection("user")
-        .doc(uid)
-        .delete()
-        .then(
-          res.status(200).json({
-            // return deleted uid user
-            ...userRecord,
-          })
-        )
-        .catch(function (error) {
-          console.log(error);
-          res.status(500).json({
-            status: "Error deleting user doc:" + error,
-          });
+  var uid = req.body.uid;
+  var deleteAuthUser = fire.auth().deleteUser(uid);
+  deleteAuthUser.then(function (userRecord) {
+    deleteFireUser = fire
+      .firestore()
+      .collection("user")
+      .doc(uid)
+      .delete()
+      .then(
+        res.status(200).json({
+          // return deleted uid user
+          ...userRecord,
+        })
+      )
+      .catch(function (error) {
+        console.log(error);
+        res.status(500).json({
+          status: "Error deleting user doc:" + error,
         });
-    })
+      });
+  })
     .catch(function (err) {
       console.log("Error deleting user auth and doc:", err);
       res.status(500).send(err);
