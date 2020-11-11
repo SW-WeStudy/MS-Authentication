@@ -1,4 +1,76 @@
 let fire = require("../../../firebase").fire;
+const { admin } = require("firebase-admin/lib/credential");
+
+// LDAP connection
+
+/*use this to create connection*/
+var ldap = require('ldapjs');
+var client = ldap.createClient({
+  url: 'ldap://3.238.50.131:389',
+});
+
+// create user in LDAP, maybe we may need homeDirectory
+module.exports.createUserLDAP = async (req, res) => {
+  var username = "cn=admin,dc=arqsoft,dc=unal,dc=edu,dc=co";
+  var password = 'admin';
+  var dataRequest = req.body;
+  var newDN = "cn=" + dataRequest.email + ",ou=sa,dc=arqsoft,dc=unal,dc=edu,dc=co";
+  var newUser = {
+    cn: dataRequest.email,
+    sn: dataRequest.surName,
+    uid: dataRequest.email,
+    mail: dataRequest.email,
+    objectClass: 'inetOrgPerson',
+    userPassword: dataRequest.password
+  }
+  // console.log("inside first function") 
+  function createDN(username, password, newDN, newUser ) {
+    client.bind(username, password, function (err) {
+      if (err) {
+        console.log("Error in new connetion " + err)
+        res.status(500).json({
+          status: "Error binding admin in LDAP server:" + err,
+        });
+      } else {
+        console.log("Success");
+        client.add(newDN, newUser, function (err) {
+          if (err) {
+            res.status(500).json({
+              status: "Error creating new user in LDAP server:" + err,
+            });
+          } else {
+            res.status(200).json({
+              status: "Succesfuly created user in LDAP server",
+            })
+          }
+        });
+      }
+    });
+  }
+  await createDN(username, password, newDN, newUser);
+}
+
+// auth user in LDAP, maybe we may need homeDirectory
+module.exports.authUserLDAP = async (req, res) => {
+  var dataRequest = req.body;
+  var username = "cn=" + dataRequest.email + ",ou=sa,dc=arqsoft,dc=unal,dc=edu,dc=co";
+  var password = dataRequest.password;
+  function authenticateDN(username, password) {
+    client.bind(username, password, function (err) {
+        if (err) {
+          console.log("Error in new connetion " + err)
+          res.status(500).json({
+            status: "Error binding/auth user in LDAP server:" + err,
+          });
+        } else {
+          res.status(200).json({
+            status: "Succesfuly authenticated user in LDAP server",
+          })
+        }
+    });
+  }
+  await authenticateDN(username, password);
+}
 
 module.exports.createUser = async (req, res) => {
   var createAuthUser = fire.auth().createUser({
@@ -6,203 +78,381 @@ module.exports.createUser = async (req, res) => {
     emailVerified: false,
     password: req.body.password,
     displayName: req.body.displayName,
-    photoURL: 'http://www.example.com/12345678/photo.png',
-    disabled: false
+    photoURL: "http://www.example.com/12345678/photo.png",
+    disabled: false,
   });
   // creacion del documento en firestore
-  createAuthUser.then(function(userRecord) {
-      res.status(200).json({
-        status: `Successfully created new user: ${userRecord.uid}`
-      });
-      createFireUser = fire.firestore().collection("user").doc(userRecord.uid).set({
-        email: req.body.email,
-        emailVerified: false,
-        password: req.body.password,
-        displayName: req.body.displayName,
-        photoURL: 'http://www.example.com/12345678/photo.png',
-        idCourses: [{}],
-        idStudyRooms: [{}],
-        idForum: [{}],
-        role: req.body.role,
-        disabled: false
-      })
-      .catch(function(error) {
-        console.log('Error creating new user doc:', error);
-        res.status(200).json({
-          status: 'Error creating new user doc:' + error
+  createAuthUser
+    .then(function (userRecord) {
+      createFireUser = fire
+        .firestore()
+        .collection("user")
+        .doc(userRecord.uid)
+        .set({
+          email: req.body.email,
+          emailVerified: false,
+          password: req.body.password,
+          displayName: req.body.displayName,
+          photoURL: "http://www.example.com/12345678/photo.png",
+          idCourses: [{}],
+          idStudyRooms: [{}],
+          idForum: [{}],
+          role: "User",
+          disabled: false,
         })
+        .then(
+          res.status(200).json({
+            ...userRecord,
+          })
+        )
+        .catch(function (error) {
+          console.log(error);
+          res.status(500).json({
+            status: "Error creating new user doc:" + error,
+          });
+        });
+    })
+    .catch(function (err) {
+      console.log(err);
+      res.status(500).json({
+        status: "Error creating new user doc:" + err,
       });
     });
-  createAuthUser.catch(function(error) {
-    console.log('Error creating new user:', error);
-    res.status(200).json({
-      status: 'Error creating new user:' + error
-    })
-  });
 };
 
-// estos son intentos de manejar la auth con firebase tokens
-/*
-module.exports.getUsernameFromToken = async (token) =>{
-  return jwt.verify(token,secret).username;
-}
-
-module.exports.getAuthUser = async(req, res) => {
-  console.log('Check if request is authorized with Firebase ID token');
-  console.log("req body" + req.body.uid);
-  try {
-    const { authToken } = this.getUsernameFromToken
-    console.log(authToken)
-    const userInfo = await fire.auth().verifyIdToken(authToken);
-    req.authId = userInfo.uid
-    res.status(200).json({
-      status: `Successfully login user: ${req.body.uid}`
-    });
-  } catch (error) {
-    console.log('Error creating new user:', error);
-    res.status(200).json({
-      status: 'Error creating new user:' + error
-    })
-  }
-}
-
-async function addDecodedIdTokenToRequest(idToken, req) {
-  try {
-    const decodedIdToken
-    req.user = decodedIdToken;
-    console.log('ID Token correctly decoded', decodedIdToken);
-  } catch (error) {
-    console.error('Error while verifying Firebase ID token:', error);
-  }
-}
-*/
-
 //consultas del usuario por su uid
-module.exports.getUserByUid = async(req, res) => {
-  fire.auth().getUser(req.body.uid).then(function(userRecord) {
-      res.status(200).json({
-        status: `Successfully get user by uid: ${userRecord.uid}`
-      })
+module.exports.getUserByUid = async (req, res) => {
+  var getUserId = fire.auth().getUser(req.body.uid);
+  // reclama credenciales en auth para pedir doc en firestore
+  getUserId
+    .then(function (userRecord) {
+      getFireUserID = fire
+        .firestore()
+        .collection("user")
+        .doc(userRecord.uid)
+        .get()
+        .then((snapshot) => {
+          const snap = snapshot.data();
+          res.status(200).json({
+            ...snap,
+          });
+        })
+        .catch(function (error) {
+          console.log("Error getting user doc:", error);
+          res.status(200).json({
+            status: "Error getting user doc:" + error,
+          });
+        });
     })
-    .catch(function(error) {
-      console.log('Error getting user:', error);
-      res.status(200).json({
-        status: 'Error getting user:' + error
-      })
+    .catch(function (err) {
+      console.log(err);
+      res.status(500).json({
+        status: "Error getting user auth and doc:" + err,
+      });
     });
 };
 
 //consultas del usuario por su email
-module.exports.getUserByEmail = async(req, res) => {
-  fire.auth().getUserByEmail(req.body.email).then(function(userRecord) {
-      res.status(200).json({
-        status: `Successfully get user by email: ${userRecord.uid}`
-      })
+module.exports.getUserByEmail = async (req, res) => {
+  var getUserEmail = fire.auth().getUserByEmail(req.body.email);
+  // reclama credenciales en auth para pedir doc en firestore
+  getUserEmail
+    .then(function (userRecord) {
+      getFireUserEmail = fire
+        .firestore()
+        .collection("user")
+        .doc(userRecord.uid)
+        .get()
+        .then((snapshot) => {
+          const snap = snapshot.data();
+          res.status(200).json({
+            ...snap,
+          });
+        })
+        .catch(function (error) {
+          console.log(error);
+          res.status(500).json({
+            status: "Error getting user doc:" + error,
+          });
+        });
     })
-    .catch(function(error) {
-      console.log('Error getting user:', error);
-      res.status(200).json({
-        status: 'Error getting user:' + error
-      })
+    .catch(function (err) {
+      console.log(err);
+      res.status(500).json({
+        status: "Error getting user auth and doc:" + err,
+      });
     });
+
 };
 
 // actualizacion de los datos del usuario
 // aqui se puede modificar basicamente todos los datos tanto en el modulo auth, como en firestore en su respectivo documento
-module.exports.updateUser= async(req, res) => {
+module.exports.updateUser = async (req, res) => {
+  var updateAuthUser = fire.auth().updateUser(req.body.uid, {
+    email: req.body.email,
+    emailVerified: req.body.emailVerified,
+    password: req.body.password,
+    displayName: req.body.displayName,
+    disabled: false,
+  });
+  // Cuando se cumpla la promesa, creo el documento en firestore
+  const dataDoc = {
+    email: req.body.email,
+    emailVerified: req.body.emailVerified,
+    password: req.body.password,
+    displayName: req.body.displayName,
+    role: req.body.role,
+    disabled: false,
+    idCourses: req.body.idCourses,
+    idStudyRooms: req.body.idStudyRooms,
+    idForum: req.body.idForum,
+  };
+  updateAuthUser
+    .then(function (userRecord) {
+      updateFireUser = fire
+        .firestore()
+        .collection("user")
+        .doc(userRecord.uid)
+        .update(dataDoc)
+        .then(
+          res.status(200).json({
+            dataDoc,
+          })
+        )
+        .catch(function (error) {
+          console.log(error);
+          res.status(500).json({
+            status: "Error updating user doc:" + error,
+          });
+        });
+    })
+    .catch(function (err) {
+      console.log("Error updating user auth and doc:", err);
+      res.status(500).send(err);
+    });
+  /*
   // Creo la promesa para actualizar un usuario en el auth
   var updateAuthUser = fire.auth().updateUser(req.body.uid, {
     email: req.body.email,
     emailVerified: req.body.emailVerified,
     password: req.body.password,
     displayName: req.body.displayName,
-    disabled: false
+    disabled: false,
   });
   // Cuando se cumpla la promesa, creo el documento en firestore
-  updateAuthUser.then(function(userRecord) {
-      res.status(200).json({
-        status: `Successfully updated user: ${userRecord.uid}`
-      });
-      fire.firestore().collection("user").doc(userRecord.uid).update({
-        email: req.body.email,
-        emailVerified: req.body.emailVerified,
-        password: req.body.password,
-        displayName: req.body.displayName,
-        role: req.body.role,
-        disabled: false,
-        idCourses: req.body.idCourses,
-        idStudyRooms: req.body.idStudyRooms,
-        idForum: req.body.idForum,
-      })
-      .catch(function(error) {
-        console.log('Error updating user doc:', error);
+  updateAuthUser.then(function (userRecord) {
+    const dataDoc = {
+      email: req.body.email,
+      emailVerified: req.body.emailVerified,
+      password: req.body.password,
+      displayName: req.body.displayName,
+      role: req.body.role,
+      disabled: false,
+      idCourses: req.body.idCourses,
+      idStudyRooms: req.body.idStudyRooms,
+      idForum: req.body.idForum,
+    };
+    fire
+      .firestore()
+      .collection("user")
+      .doc(userRecord.uid)
+      .update(dataDoc)
+      .then(function (userRecord1) {
         res.status(200).json({
-          status: 'Error updating user doc:' + error
-        })
-      });
-    })
-    .catch(function(error) {
-      console.log('Error updating user:', error);
-      res.status(200).json({
-        status: 'Error updating user:' + error
+          ...dataDoc,
+        });
       })
+      .catch(function (error) {
+        console.log("Error updating user doc:", error);
+        res.status(200).json({
+          status: "Error updating user doc:" + error,
+        });
+      });
+  });
+  updateAuthUser.catch(function (error) {
+    console.log("Error updating user:", error);
+    return res.status(200).json({
+      status: "Error updating user:" + error,
     });
+  });
+  */
 };
 
 // deshabilita que un usuario se pueda autenticar, mas no elimina su documento en firestore
-module.exports.putDownUser= async(req, res) => {
-  fire.auth().updateUser(req.body.uid,{
-    disabled: true
-  }).then(function(userRecord) {
-      res.status(200).json({
-        status: `Successfully putted user down: ${userRecord.uid}`
-      })
+module.exports.putDownUser = async (req, res) => {
+  var putAuthDown = fire.auth().updateUser(req.body.uid, {
+    disabled: true,
+  });
+  putAuthDown
+    .then(function (userRecord) {
+      putFireDown = fire
+        .firestore()
+        .collection("user")
+        .doc(userRecord.uid)
+        .update({ disabled: true })
+        .then(
+          res.status(200).json({
+            ...userRecord,
+          })
+        )
+        .catch(function (error) {
+          console.log(error);
+          res.status(500).json({
+            status: "Error putting down user doc:" + error,
+          });
+        });
     })
-    .catch(function(error) {
-      console.log('Error putting user down:', error);
-      res.status(200).json({
-        status: 'Error putting user down:' + error
-      })
+    .catch(function (err) {
+      console.log("Error updating user auth and doc:", err);
+      res.status(500).send(err);
     });
+
+  /*
+  var putAuthDown = fire.auth().updateUser(req.body.uid, {
+    disabled: true,
+  });
+  putAuthDown.then(function (userRecord) {
+    fire
+      .firestore()
+      .collection("user")
+      .doc(userRecord.uid)
+      .update({ disabled: true })
+      .then(function (userRecord1) {
+        res.status(200).json({
+          ...userRecord1,
+        });
+      })
+      .catch(function (error) {
+        console.log("Error updating disable user doc:", error);
+        res.status(200).json({
+          status: "Error updating disable user doc:" + error,
+        });
+      });
+  });
+  putAuthDown.catch(function (error) {
+    console.log("Error putting user down:", error); 
+    res.status(200).json({
+      status: "Error putting user down:" + error,
+    });
+  });
+  */
 };
 
 // habilita que un usuario se pueda autenticar, esto sin modificar o eliminar su documento en firestore
-module.exports.putUpUser= async(req, res) => {
-  fire.auth().updateUser(req.body.uid,{
-    disabled: false
-  }).then(function(userRecord) {
-      res.status(200).json({
-        status: `Successfully putted user up: ${userRecord.uid}`
-      })
+module.exports.putUpUser = async (req, res) => {
+  var putAuthUp = fire.auth().updateUser(req.body.uid, {
+    disabled: false,
+  });
+  putAuthUp
+    .then(function (userRecord) {
+      putFireUp = fire
+        .firestore()
+        .collection("user")
+        .doc(userRecord.uid)
+        .update({ disabled: false })
+        .then(
+          res.status(200).json({
+            ...userRecord,
+          })
+        )
+        .catch(function (error) {
+          console.log(error);
+          res.status(500).json({
+            status: "Error putting up user doc:" + error,
+          });
+        });
     })
-    .catch(function(error) {
-      console.log('Error putting user up:', error);
-      res.status(200).json({
-        status: 'Error putting user up:' + error
-      })
+    .catch(function (err) {
+      console.log("Error updating user auth and doc:", err);
+      res.status(500).send(err);
     });
+  /*
+  var putAuthUp = fire.auth().updateUser(req.body.uid, {
+    disabled: false,
+  });
+  putAuthUp.then(function (userRecord) {
+    fire
+      .firestore()
+      .collection("user")
+      .doc(userRecord.uid)
+      .update({ disabled: true })
+      .then(function (userRecord1) {
+        return res.status(200).json({
+          ...userRecord1,
+        });
+      })
+      .catch(function (error) {
+        console.log("Error updating disable user doc:", error);
+        res.status(200).json({
+          status: "Error updating disable user doc:" + error,
+        });
+      });
+  });
+  putAuthUp.catch(function (error) {
+    console.log("Error putting user up:", error);
+    res.status(200).json({
+      status: "Error putting user up:" + error,
+    });
+  });
+  */
 };
 
-// elimina sus credenciales de autenticacion, dejare comentado el de eliminar el documento 
+// elimina sus credenciales de autenticacion, dejare comentado el de eliminar el documento
 // puesto que no se hasta que punto sea eso conveniente
-module.exports.deleteUser= async(req, res) => {
-  fire.auth().deleteUser(req.body.uid).then(function() {
-      res.status(200).json({
-        status: `Successfully deleted user`
-      })
-      /*
-      deleteFireUser = fire.firestore().collection("user").doc(req.body.uid).delete().catch(function (error) {
-        console.log('Error deleting user doc:', error);
+module.exports.deleteUser = async (req, res) => {
+
+  var uid = req.body.uid;
+  var deleteAuthUser = fire.auth().deleteUser(uid);
+  deleteAuthUser.then(function (userRecord) {
+    deleteFireUser = fire
+      .firestore()
+      .collection("user")
+      .doc(uid)
+      .delete()
+      .then(
         res.status(200).json({
-          status: 'Error deleting user doc:' + error
+          // return deleted uid user
+          ...userRecord,
         })
+      )
+      .catch(function (error) {
+        console.log(error);
+        res.status(500).json({
+          status: "Error deleting user doc:" + error,
+        });
       });
-      */
-    })
-    .catch(function(error) {
-      console.log('Error deleting user:', error);
-      res.status(200).json({
-        status: 'Error deleting user:' + error
-      })
+  })
+    .catch(function (err) {
+      console.log("Error deleting user auth and doc:", err);
+      res.status(500).send(err);
     });
+
+  /*
+  const uid = req.body.uid;
+  var deleteAuthUser = fire.auth().deleteUser(uid);
+  deleteAuthUser.then(function (userRecord) {
+    fire
+      .firestore()
+      .collection("user")
+      .doc(uid)
+      .delete()
+      .then(function (userRecord1) {
+        res.status(200).json({
+          ...userRecord1,
+        });
+      })
+      .catch(function (error) {
+        console.log("Error deleting user doc:", error);
+        res.status(200).json({
+          status: "Error deleting disable user doc:" + error,
+        });
+      });
+  });
+  deleteAuthUser.catch(function (error) {
+    console.log("Error deleting user:", error);
+    res.status(200).json({
+      status: "Error deleting user:" + error,
+    });
+  });
+  */
 };
