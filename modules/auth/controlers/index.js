@@ -1,4 +1,5 @@
 let fire = require("../../../firebase").fire;
+const xml2js = require('xml2js');
 const { admin } = require("firebase-admin/lib/credential");
 
 // LDAP connection
@@ -176,7 +177,17 @@ module.exports.getUserByUid = async (req, res) => {
 
 //consultas del usuario por su email
 module.exports.getUserByEmail = async (req, res) => {
-  var getUserEmail = fire.auth().getUserByEmail(req.body.email);
+  console.log(req.body["soap:envelope"]["soap:body"][0]["undefined:userfunction"][0]["email"][0])
+//   const parser = new xml2js.Parser({ attrkey: "ATTR" });
+//   parser.parseString(req.body ,function(error, result) {
+//     if(error === null) {
+//         console.log(result);
+//     }
+//     else {
+//         console.log(error);
+//     }
+// });
+  var getUserEmail = fire.auth().getUserByEmail(req.body["soap:envelope"]["soap:body"][0]["undefined:userfunction"][0]["email"][0]);
   // reclama credenciales en auth para pedir doc en firestore
   getUserEmail
     .then(function (userRecord) {
@@ -187,6 +198,7 @@ module.exports.getUserByEmail = async (req, res) => {
         .get()
         .then((snapshot) => {
           const snap = snapshot.data();
+          delete snap.password
           res.status(200).json({
             ...snap,
           });
