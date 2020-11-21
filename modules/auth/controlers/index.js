@@ -9,6 +9,23 @@ var client = ldap.createClient({
   url: "ldap://54.243.131.129:389",
 });
 
+module.exports.verifyToken = async (req, res) => {
+  // idToken comes from the client app
+  var dataRequest = req.body.idToken;
+  console.log(dataRequest);
+  var verifyToken = fire.auth().verifyIdToken(dataRequest);
+  verifyToken
+    .then(function (decodedToken) {
+      let uid = decodedToken.uid;
+      console.log("Succes:  ", uid);
+      res.status(200).json({ verified: true });
+    })
+    .catch(function (err) {
+      console.log("Error token:", err);
+      res.status(200).json({ verified: false });
+    });
+};
+
 // create user in LDAP, maybe we may need homeDirectory
 module.exports.createUserLDAP = async (req, res) => {
   var username = "cn=admin,dc=arqsoft,dc=unal,dc=edu,dc=co";
@@ -44,7 +61,7 @@ module.exports.createUserLDAP = async (req, res) => {
             // res.status(200).json(true);
             res.status(200).json({
               status: true,
-            })
+            });
           }
         });
       }
@@ -69,8 +86,8 @@ module.exports.authUserLDAP = async (req, res) => {
       } else {
         // res.status(200).json(true);
         res.status(200).json({
-            status: true,
-          })
+          status: true,
+        });
       }
     });
   }
