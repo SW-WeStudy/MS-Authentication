@@ -7,7 +7,7 @@ const { admin } = require("firebase-admin/lib/credential");
 /*use this to create connection*/
 var ldap = require("ldapjs");
 var client = ldap.createClient({
-  url: "ldap://54.243.131.129:389",
+  url: "ldap://52.71.79.75:389",
 });
 
 module.exports.verifyToken = async (req, res) => {
