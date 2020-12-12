@@ -118,7 +118,3 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-
-# files to ignore
-firebase.js
-serviceAccountKey.json
