@@ -177,7 +177,6 @@ module.exports.getUserByUid = async (req, res) => {
 
 //consultas del usuario por su email
 module.exports.getUserByEmail = async (req, res) => {
-  console.log(req.body["soap:envelope"]["soap:body"][0]["undefined:userfunction"][0]["email"][0])
 //   const parser = new xml2js.Parser({ attrkey: "ATTR" });
 //   parser.parseString(req.body ,function(error, result) {
 //     if(error === null) {
